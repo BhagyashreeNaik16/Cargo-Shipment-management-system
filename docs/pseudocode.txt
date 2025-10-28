@@ -1,0 +1,340 @@
+// Project: Cargo Shipment Management and Delivery System
+
+// --- Data Structures ---
+
+// Structure for a Booking
+Booking {
+  bookingID: String,
+  customerID: String,
+  pickupLocation: String,
+  deliveryLocation: String,
+  shipmentType: String, // e.g., "Parcel", "Container"
+  shipmentWeight: Number,
+  shipmentVolume: Number,
+  pickupDate: Date,
+  deliveryDate: Date, // Predicted or Actual
+  status: String, // e.g., "Pending", "In Transit", "Delivered", "Cancelled"
+  driverID: String,
+  vehicleID: String,
+  price: Number,
+  invoiceID: String,
+  timestamps: Object // created, updated, ...
+}
+
+// Structure for a Driver
+Driver {
+  driverID: String,
+  name: String,
+  licenseNumber: String,
+  phoneNumber: String,
+  email: String,
+  availability: Boolean,
+  currentLocation: String,
+  vehicleID: String,
+  status: String, // e.g., Active, Inactive, On leave
+  timestamps: Object // created, updated, ...
+}
+
+// Structure for a Vehicle
+Vehicle {
+  vehicleID: String,
+  type: String, // e.g., "Truck", "Van", "Motorcycle"
+  capacity: Number, // Weight/Volume
+  registrationNumber: String,
+  currentLocation: String,
+  status: String, // e.g., Available, In Use, Under Maintenance
+  timestamps: Object // created, updated, ...
+}
+
+// Structure for a User
+User {
+  userID: String,
+  name: String,
+  email: String,
+  passwordHash: String,
+  phoneNumber: String,
+  role: String, // e.g., "Admin", "Customer"
+  timestamps: Object // created, updated, ...
+}
+
+// Structure for an Invoice
+Invoice {
+  invoiceID: String,
+  bookingID: String,
+  customerID: String,
+  issueDate: Date,
+  dueDate: Date,
+  amount: Number,
+  status: String, // e.g., "Pending", "Paid", "Overdue"
+  timestamps: Object // created, updated, ...
+}
+//Structure for Reports
+Report {
+  reportId: String,
+  reportType: String, //e.g daily, weekly, monthly
+  dateRangeStart: Date,
+  dateRangeEnd: Date,
+  data: Object,
+  timestamps: Object // created, updated, ...
+}
+
+// --- Main Functions ---
+
+// AI Function: Predict Delivery Time
+Function PredictDeliveryTime(bookingData: Booking) Returns Date {
+  // Input: Booking details (pickup, delivery locations, shipment type, weight, etc.)
+  // Output: Predicted delivery date and time
+
+  // 1. Load trained AI/ML model
+  LoadModel()
+  // 2. Preprocess booking data for the model
+  preprocessedData = PreprocessData(bookingData)
+  // 3. Use AI/ML model to predict delivery time
+  predictedTime = ModelPredict(preprocessedData)
+  // 4. Return predicted time
+  Return predictedTime
+}
+
+// Function: Create New Booking
+Function CreateBooking(customerID: String, bookingData: Booking) Returns Booking {
+  // 1. Validate booking data
+  If (ValidateBookingData(bookingData) == false) Then
+    Return Error("Invalid booking data")
+  End If
+
+  // 2. Generate a unique booking ID
+  bookingData.bookingID = GenerateUniqueID("Booking")
+  // 3. Assign to the customer
+  bookingData.customerID = customerID
+  // 4. Predict delivery time
+  bookingData.deliveryDate = PredictDeliveryTime(bookingData)
+
+  // 5. Set initial status
+  bookingData.status = "Pending"
+
+  // 6. Save the booking to the database
+  SaveToDatabase(bookingData, "Bookings")
+
+  // 7. Return the created booking details
+  Return bookingData
+}
+
+// Function: Assign Driver to Booking
+Function AssignDriver(bookingID: String, driverID: String, vehicleID:String) Returns Boolean {
+  // 1. Check if booking exists
+  booking = GetFromDatabase(bookingID, "Bookings")
+  If (booking == null) Then
+    Return false
+  End If
+  // 2. check if driver exists
+  driver = GetFromDatabase(driverID, "Drivers")
+  If (driver == null) Then
+    Return false
+  End If
+    // 3. check if vehicle exists
+  vehicle = GetFromDatabase(vehicleID, "Vehicles")
+  If (vehicle == null) Then
+    Return false
+  End If
+    // 4. Check driver status and availability
+  If (driver.status != "Active" OR driver.availability == false) Then
+    Return false
+  End If
+  // 5. assign vehicle to driver
+  driver.vehicleID = vehicleID
+    // 6. Save the driver to the database
+  SaveToDatabase(driver, "Drivers")
+  // 7. assign driver to booking
+  booking.driverID = driverID
+  booking.vehicleID = vehicleID
+  booking.status = "Assigned"
+  // 8. Save the updated booking to the database
+  SaveToDatabase(booking, "Bookings")
+  // 9. send notifications
+  SendNotification(booking.customerID, "Booking assigned", "Your booking with id: "+bookingID+" has been assigned a driver")
+  Return true
+}
+
+// Function: Update Booking Status
+Function UpdateBookingStatus(bookingID: String, newStatus: String) Returns Boolean {
+  // 1. Check if booking exists
+  booking = GetFromDatabase(bookingID, "Bookings")
+  If (booking == null) Then
+    Return false
+  End If
+
+  // 2. Update the status
+  booking.status = newStatus
+
+  // 3. Save the updated booking to the database
+  SaveToDatabase(booking, "Bookings")
+
+  // 4. Send a notification to the customer
+  SendNotification(booking.customerID, "Booking Status Update", "Your booking status has been updated to " + newStatus)
+    
+  Return true
+}
+
+// Function: Generate Invoice
+Function GenerateInvoice(bookingID: String) Returns Invoice {
+  // 1. Check if booking exists
+  booking = GetFromDatabase(bookingID, "Bookings")
+  If (booking == null) Then
+    Return Error("Booking not found")
+  End If
+
+  // 2. Generate a unique invoice ID
+  invoiceID = GenerateUniqueID("Invoice")
+
+  // 3. Calculate the amount (using a pricing algorithm)
+  amount = CalculatePrice(booking) // Based on shipment type, weight, distance, etc.
+
+  // 4. Create the invoice
+  invoice = New Invoice(invoiceID, bookingID, booking.customerID, CurrentDate(), DueDate(), amount, "Pending")
+
+  // 5. Save the invoice to the database
+  SaveToDatabase(invoice, "Invoices")
+  // 6. update booking with invoice
+  booking.invoiceID = invoiceID
+  SaveToDatabase(booking, "Bookings")
+
+  // 7. Send the invoice to the customer
+  SendNotification(booking.customerID, "New Invoice", "Your invoice for booking " + bookingID + " has been generated.")
+
+  // 8. Return the invoice
+  Return invoice
+}
+
+// Function: Send Notification
+Function SendNotification(userID: String, subject: String, message: String) {
+  // 1. Get user details
+  user = GetFromDatabase(userID, "Users")
+
+  // 2. Send email
+  SendEmail(user.email, subject, message)
+
+  // 3. Send SMS
+  SendSMS(user.phoneNumber, message)
+}
+// Function: Generate Report
+Function GenerateReport(type: String, startDate: Date, endDate: Date) Returns Report {
+   //1. Get Data from Database
+   If(type == "daily") then
+      data = GetDataFromDatabase("Bookings", startDate, endDate)
+   Else If (type == "weekly") then
+      data = GetDataFromDatabase("Bookings", startDate, endDate)
+   Else If (type == "monthly") then
+      data = GetDataFromDatabase("Bookings", startDate, endDate)
+   End if
+   //2. Build the report data
+   reportData = BuildReportData(type, data)
+   //3. Save report in the database
+   report = New Report(GenerateUniqueID("Report"), type, startDate, endDate, reportData)
+   SaveToDatabase(report, "Reports")
+   //4. return the report
+   Return report
+}
+// --- Admin Panel Functions ---
+
+// Function: Admin Login
+Function AdminLogin(email: String, passwordHash: String) Returns Boolean {
+  // 1. Find the admin user
+  admin = GetAdminByEmail(email)
+
+  // 2. Check if admin exists and password matches
+  If (admin != null AND VerifyPassword(passwordHash, admin.passwordHash)) Then
+    Return true
+  Else
+    Return false
+  End If
+}
+
+// Function: Manage Bookings (Admin)
+Function ManageBookings(action: String, bookingData: Booking) Returns Booking {
+  // 1. Check if admin is logged in
+  If (!IsAdminLoggedIn()) Then
+    Return Error("Not authorized")
+  End If
+
+  // 2. Perform the requested action (e.g., create, update, delete)
+  If (action == "Create") Then
+    Return CreateBooking(bookingData.customerID, bookingData)
+  Else If (action == "Update") Then
+    // ... (code to update the booking)
+  Else If (action == "Delete") Then
+    // ... (code to delete the booking)
+  Else
+    Return Error("Invalid action")
+  End If
+}
+
+// Function: Manage Drivers (Admin)
+Function ManageDrivers(action: String, driverData: Driver) Returns Driver {
+    // 1. Check if admin is logged in
+  If (!IsAdminLoggedIn()) Then
+    Return Error("Not authorized")
+  End If
+  // 2. Perform the requested action
+    If (action == "Create") Then
+    // create new driver
+  Else If (action == "Update") Then
+    // update driver
+  Else If (action == "Delete") Then
+    // delete driver
+  Else
+    Return Error("Invalid action")
+  End If
+}
+
+// Function: Manage Vehicles (Admin)
+Function ManageVehicles(action: String, vehicleData: Vehicle) Returns Vehicle {
+   // 1. Check if admin is logged in
+  If (!IsAdminLoggedIn()) Then
+    Return Error("Not authorized")
+  End If
+   // 2. Perform the requested action
+   If (action == "Create") Then
+    // create new vehicle
+  Else If (action == "Update") Then
+    // update vehicle
+  Else If (action == "Delete") Then
+    // delete vehicle
+  Else
+    Return Error("Invalid action")
+  End If
+}
+
+// Function: Manage Users (Admin)
+Function ManageUsers(action: String, userData: User) Returns User {
+  // 1. Check if admin is logged in
+  If (!IsAdminLoggedIn()) Then
+    Return Error("Not authorized")
+  End If
+  // 2. Perform the requested action
+    If (action == "Create") Then
+    // create new user
+  Else If (action == "Update") Then
+    // update user
+  Else If (action == "Delete") Then
+    // delete user
+  Else
+    Return Error("Invalid action")
+  End If
+}
+// Function: Manage Reports (Admin)
+Function ManageReports(reportType: String, dateRangeStart:Date, dateRangeEnd: Date) Returns Report {
+  // 1. Check if admin is logged in
+  If (!IsAdminLoggedIn()) Then
+    Return Error("Not authorized")
+  End If
+  // 2. generate report
+    If (reportType == "daily") Then
+     Return GenerateReport(reportType,dateRangeStart, dateRangeEnd)
+  Else If (reportType == "weekly") Then
+     Return GenerateReport(reportType,dateRangeStart, dateRangeEnd)
+  Else If (reportType == "monthly") Then
+     Return GenerateReport(reportType,dateRangeStart, dateRangeEnd)
+  Else
+    Return Error("Invalid report type")
+  End If
+}

@@ -1,0 +1,5 @@
+*   **AI-Powered Delivery Time Prediction:** Utilizes artificial intelligence to provide accurate estimations of delivery times, optimizing logistics and improving customer communication.
+*   **Unified Web and Mobile Interfaces:** Offers accessible and user-friendly platforms for both administrators and users to manage cargo operations from any device.
+*   **Seamless Third-Party Integrations:** Connects with external services for essential functions like real-time notifications and secure online payment processing.
+*   **Comprehensive Management Modules:** Includes dedicated sections for efficiently managing bookings, shipments, drivers, and vehicles.
+*   **Advanced User Management:** Features a robust system for managing users with defined roles and permissions to ensure secure and controlled access to the system.
